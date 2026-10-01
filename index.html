@@ -109,7 +109,7 @@ body{background:#0a1228;color-scheme:dark}
 </div>
 
 <script>
-const $=id=>document.getElementById(id), KEY='versuchsprotokoll-v2';
+const $=id=>document.getElementById(id), KEY='versuchsprotokoll-v2', OLD_KEY='versuchsprotokoll-v1';
 const fields=['datum','titel','p','h','btext','bextra','f'];
 const richFields=['d'];
 let st={mode:'text',rows:3,cols:3,cells:{}};
@@ -126,17 +126,18 @@ function applyLang(){const L=st.lang;document.documentElement.lang=L;document.ti
   build();}
 function setLang(l){st.lang=l;applyLang();save();}
 function load(){try{
-  const s=JSON.parse(localStorage.getItem(KEY))||{};
+  const s=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem(OLD_KEY))||{};
   fields.forEach(f=>$(f).value=s[f]||'');
   richFields.forEach(f=>$(f).innerHTML=s[f]||'');
   st=Object.assign(st,s.st||{});
   if(s.sketch)st.sketch=s.sketch;
   if(s.sketch){const im=new Image();im.onload=()=>{const ctx=$('sketch').getContext('2d');ctx.clearRect(0,0,1200,600);ctx.drawImage(im,0,0)};im.src=s.sketch;}
 }catch(e){}}
-function save(){try{
+function save(includeSketch=false){try{
   const o={st};fields.forEach(f=>o[f]=$(f).value);
   richFields.forEach(f=>o[f]=$(f).innerHTML);
-  if($('sketch'))o.sketch=$('sketch').toDataURL('image/png');
+  if(includeSketch&&$('sketch'))o.sketch=$('sketch').toDataURL('image/png');
+  else{const old=JSON.parse(localStorage.getItem(KEY)||'{}');if(old.sketch)o.sketch=old.sketch;}
   localStorage.setItem(KEY,JSON.stringify(o));
 }catch(e){}}
 function grow(t){t.style.height='auto';t.style.height=t.scrollHeight+2+'px'}
@@ -186,13 +187,13 @@ $('d').dataset.placeholder=t('dph');
 $('d').setAttribute('data-placeholder',t('dph'));
 
 function rememberSketch(){const canvas=$('sketch');sketchHistory.push(canvas.toDataURL('image/png'));if(sketchHistory.length>20)sketchHistory.shift();}
-function restoreSketch(data){const canvas=$('sketch'),ctx=canvas.getContext('2d'),im=new Image();im.onload=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(im,0,0);save()};im.src=data;}
+function restoreSketch(data){const canvas=$('sketch'),ctx=canvas.getContext('2d'),im=new Image();im.onload=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(im,0,0);save(true)};im.src=data;}
 function initSketch(){
  const canvas=$('sketch'),ctx=canvas.getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='#111827';
  let drawing=false,last=null;
  canvas.addEventListener('pointerdown',e=>{rememberSketch();drawing=true;canvas.setPointerCapture(e.pointerId);const r=canvas.getBoundingClientRect();last={x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};ctx.beginPath();ctx.moveTo(last.x,last.y)});
  canvas.addEventListener('pointermove',e=>{if(!drawing)return;const r=canvas.getBoundingClientRect(),p={x:(e.clientX-r.left)*canvas.width/r.width,y:(e.clientY-r.top)*canvas.height/r.height};ctx.lineWidth=2+Math.max(0,Math.min(1,e.pressure||.5))*3;ctx.lineTo(p.x,p.y);ctx.stroke();last=p});
- const end=()=>{if(drawing){drawing=false;save()}};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
+ const end=()=>{if(drawing){drawing=false;save(true)}};canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
 }
 initSketch();
 $('l-de').onclick=()=>setLang('de');$('l-en').onclick=()=>setLang('en');
@@ -205,8 +206,8 @@ document.querySelectorAll('.fmt').forEach(btn=>btn.addEventListener('click',()=>
   if(btn.dataset.symbol)document.execCommand('insertText',false,btn.dataset.symbol);
   save();
 }));
-$('undoSketch').onclick=()=>{if(sketchHistory.length)restoreSketch(sketchHistory.pop());else{const ctx=$('sketch').getContext('2d');ctx.clearRect(0,0,1200,600);save()}};
-$('clearSketch').onclick=()=>{rememberSketch();$('sketch').getContext('2d').clearRect(0,0,1200,600);save()};
+$('undoSketch').onclick=()=>{if(sketchHistory.length)restoreSketch(sketchHistory.pop());else{const ctx=$('sketch').getContext('2d');ctx.clearRect(0,0,1200,600);save(true)}};
+$('clearSketch').onclick=()=>{rememberSketch();$('sketch').getContext('2d').clearRect(0,0,1200,600);save(true)};
 $('print').onclick=()=>window.print();
 $('copy').onclick=async()=>{try{await navigator.clipboard.writeText(toText());toast(t('copied'))}catch(e){toast(t('copyfail'))}};
 $('dl').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([toText()],{type:'text/plain'}));
